@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Absensi Digital - SMP Islam YTM 1 Bogor</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- FontAwesome 6 Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- React & ReactDOM (UMD) -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Standalone for JSX parsing in browser -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  
+  <!-- Recharts & Dependencies -->
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.12.0/umd/Recharts.js"></script>
+
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #f8fafc;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    .animate-fade-in { animation: fadeIn 0.25s ease-out forwards; }
+    
+    @keyframes pulseShort { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+    .animate-pulse-short { animation: pulseShort 0.4s ease-in-out; }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: white !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-blue-600 selection:text-white">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, Component } = React;
+    const { 
+      BarChart, Bar, XAxis, YAxis, CartesianGrid, 
+      Tooltip: RechartsTooltip, Legend, ResponsiveContainer, 
+      PieChart, Pie, Cell 
+    } = window.Recharts || {};
+
+    // Helper Icon Component wrapper using FontAwesome
+    const Icon = ({ name, className = "w-5 h-5" }) => (
+      <i className={`${name} ${className} inline-flex items-center justify-center`}></i>
+    );
+
+    const COLORS = {
+      primary: '#1e3a8a',  // Deep Navy Blue
+      secondary: '#d97706',// Amber/Gold
+      hadir: '#10b981',    // Emerald Green
+      sakit: '#f59e0b',    // Amber Yellow
+      izin: '#3b82f6',     // Royal Blue
+      alpa: '#ef4444'      // Rose Red
+    };
+
+    const PIE_COLORS = [COLORS.hadir, COLORS.sakit, COLORS.izin, COLORS.alpa];
+
+    const genId = () => Math.random().toString(36).substring(2, 9);
+
+    const DEFAULT_CLASSES = [
+      { id: 'c1', name: 'VII A', level: 'VII', wali: 'Siti Aminah, M.Pd', room: 'Ruang 101' },
+      { id: 'c2', name: 'VII B', level: 'VII', wali: 'Ahmad Fauzi, S.Pd', room: 'Ruang 102' },
+      { id: 'c3', name: 'VII C', level: 'VII', wali: 'Dewi Lestari, S.Ag', room: 'Ruang 103' },
+      { id: 'c4', name: 'VIII A', level: 'VIII', wali: 'Budi Santoso, S.Kom', room: 'Ruang 201' },
+      { id: 'c5', name: 'VIII B', level: 'VIII', wali: 'Rina Marlina, M.Pd', room: 'Ruang 202' },
+      { id: 'c6', name: 'VIII C', level: 'VIII', wali: 'Hadi Sucipto, S.Pd', room: 'Ruang 203' },
+      { id: 'c7', name: 'IX A', level: 'IX', wali: 'Dian Saputra, M.Pd', room: 'Ruang 301' },
+      { id: 'c8', name: 'IX B', level: 'IX', wali: 'Maya Anggraini, S.Pd', room: 'Ruang 302' },
+      { id: 'c9', name: 'IX C', level: 'IX', wali: 'Fajar Nugroho, S.Si', room: 'Ruang 303' }
+    ];
+
+    const generateDefaultStudents = () => {
+      const firstNamesL = ["Muhammad", "Ahmad", "Rizky", "Dimas", "Fajar", "Reza", "Bayu", "Doni", "Gilang", "Iqbal", "Farhan", "Zaky"];
+      const firstNamesP = ["Siti", "Nur", "Dewi", "Putri", "Lestari", "Anisa", "Citra", "Fitri", "Hana", "Indah", "Nabila", "Aisyah"];
+      const lastNames = ["Pratama", "Saputra", "Wijaya", "Lestari", "Kusuma", "Ramadhan", "Santoso", "Hidayat", "Nugroho", "Rahayu", "Firmansyah", "Maulana"];
+
+      const students = [];
+      let counter = 1;
+
+      DEFAULT_CLASSES.forEach((cls) => {
+        for (let i = 1; i <= 8; i++) {
+          const isBoy = i % 2 !== 0;
+          const fn = isBoy ? firstNamesL[(counter * 3) % firstNamesL.length] : firstNamesP[(counter * 5) % firstNamesP.length];
+          const ln = lastNames[(counter * 7) % lastNames.length];
+          
+          students.push({
+            id: `std_${counter}`,
+            nis: `2425${1000 + counter}`,
+            nisn: `008${10000000 + counter * 1234}`,
+            name: `${fn} ${ln}`,
+            gender: isBoy ? 'L' : 'P',
+            classId: cls.id,
+            pob: 'Bogor',
+            dob: '2011-04-12',
+            parentPhone: `0812${Math.floor(10000000 + Math.random() * 90000000)}`,
+            address: `Jl. Raya Dramaga No. ${10 + counter}, Dramaga, Bogor`,
+            status: 'Aktif'
+          });
+          counter++;
+        }
+      });
+      return students;
+    };
+
+    class ErrorBoundary extends Component {
+      constructor(props) {
+        super(props);
+        this.state = { hasError: false, error: null };
+      }
+      static getDerivedStateFromError(error) {
+        return { hasError: true, error };
+      }
+      render() {
+        if (this.state.hasError) {
+          return (
+            <div className="min-h-screen bg-rose-50 flex items-center justify-center p-6 text-center">
+              <div className="bg-white p-8 rounded-3xl shadow-2xl max-w-md border border-rose-200">
+                <div className="w-16 h-16 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                </div>
+                <h2 className="text-xl font-bold text-slate-900 mb-2">Terjadi Kesalahan Sistem</h2>
+                <p className="text-xs text-slate-500 mb-6">{this.state.error?.toString()}</p>
+                <button 
+                  onClick={() => { this.setState({ hasError: false }); window.location.reload(); }}
+                  className="px-6 py-3 bg-blue-900 text-white rounded-xl text-xs font-bold hover:bg-blue-800 transition"
+                >
+                  Muat Ulang Aplikasi
+                </button>
+              </div>
+            </div>
+          );
+        }
+        return this.props.children;
+      }
+    }
+
+    const Toast = ({ message, type = 'success', onClose }) => {
+      useEffect(() => {
+        const timer = setTimeout(onClose, 3500);
+        return () => clearTimeout(timer);
+      }, [onClose]);
+
+      const bg = type === 'success' ? 'bg-emerald-600 text-white' : type === 'error' ? 'bg-rose-600 text-white' : 'bg-blue-800 text-white';
+      const icon = type === 'success' ? 'fa-circle-check' : type === 'error' ? 'fa-circle-xmark' : 'fa-circle-info';
+
+      return (
+        <div className={`fixed bottom-5 right-5 flex items-center px-4 py-3 rounded-2xl shadow-2xl z-50 transition-all transform animate-fade-in ${bg}`}>
+          <i className={`fa-solid ${icon} text-lg mr-3`}></i>
+          <p className="font-semibold text-xs tracking-wide mr-4">{message}</p>
+          <button onClick={onClose} className="opacity-75 hover:opacity-100 transition p-1">
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      );
+    };
+
+    const Modal = ({ isOpen, title, onClose, children }) => {
+      if (!isOpen) return null;
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 bg-blue-900 text-white flex items-center justify-between">
+              <h3 className="font-bold text-sm tracking-wide">{title}</h3>
+              <button onClick={onClose} className="text-slate-300 hover:text-white transition">
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto space-y-4">
+              {children}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [activeUser, setActiveUser] = useState(null);
+      const [toast, setToast] = useState(null);
+      const [sidebarOpen, setSidebarOpen] = useState(false);
+
+      const [classes, setClasses] = useState([]);
+      const [students, setStudents] = useState([]);
+      const [attendance, setAttendance] = useState([]);
+
+      useEffect(() => {
+        const savedRole = localStorage.getItem('ytm_role');
+        const savedName = localStorage.getItem('ytm_name');
+        if (savedRole) {
+          setActiveUser({ role: savedRole, name: savedName });
+        }
+
+        try {
+          const savedClasses = localStorage.getItem('ytm_classes');
+          setClasses(savedClasses ? JSON.parse(savedClasses) : DEFAULT_CLASSES);
+
+          const savedStudents = localStorage.getItem('ytm_students');
+          const loadedStudents = savedStudents ? JSON.parse(savedStudents) : generateDefaultStudents();
+          setStudents(loadedStudents);
+          if (!savedStudents) {
+            localStorage.setItem('ytm_students', JSON.stringify(loadedStudents));
+          }
+
+          const savedAttendance = localStorage.getItem('ytm_attendance');
+          if (savedAttendance) {
+            setAttendance(JSON.parse(savedAttendance));
+          } else {
+            const today = new Date().toISOString().split('T')[0];
+            const sampleAtt = [];
+            loadedStudents.forEach((s, idx) => {
+              let status = 'hadir';
+              if (idx % 9 === 0) status = 'sakit';
+              else if (idx % 14 === 0) status = 'izin';
+              else if (idx % 19 === 0) status = 'alpa';
+              sampleAtt.push({ 
+                id: genId(), 
+                date: today, 
+                classId: s.classId, 
+                studentId: s.id, 
+                status: status,
+                note: status !== 'hadir' ? 'Keterangan terpantau' : ''
+              });
+            });
+            setAttendance(sampleAtt);
+            localStorage.setItem('ytm_attendance', JSON.stringify(sampleAtt));
+          }
+        } catch (e) {
+          console.error("Error loading application state", e);
+        }
+      }, []);
+
+      const showToast = (message, type = 'success') => setToast({ message, type });
+
+      const handleLogin = (role, customName, e) => {
+        e?.preventDefault();
+        const name = customName || (role === 'ADMIN' ? 'Administrator IT' : role === 'WALI' ? 'Ahmad Fauzi, S.Pd' : 'Siti Aminah, M.Pd');
+        setActiveUser({ role, name });
+        localStorage.setItem('ytm_role', role);
+        localStorage.setItem('ytm_name', name);
+        showToast(`Selamat datang, ${name}!`);
+      };
+
+      const handleLogout = () => {
+        setActiveUser(null);
+        localStorage.removeItem('ytm_role');
+        localStorage.removeItem('ytm_name');
+      };
+
+      // Helper state syncs
+      const updateStudents = (newStudents) => {
+        setStudents(newStudents);
+        localStorage.setItem('ytm_students', JSON.stringify(newStudents));
+      };
+
+      const updateClasses = (newClasses) => {
+        setClasses(newClasses);
+        localStorage.setItem('ytm_classes', JSON.stringify(newClasses));
+      };
+
+      const updateAttendance = (newAttendance) => {
+        setAttendance(newAttendance);
+        localStorage.setItem('ytm_attendance', JSON.stringify(newAttendance));
+      };
+
+      if (!activeUser) {
+        return (
+          <ErrorBoundary>
+            <div className="min-h-screen bg-gradient-to-br from-blue-950 via-slate-900 to-blue-900 flex items-center justify-center p-4">
+              <div className="max-w-md w-full bg-white rounded-3xl shadow-2xl overflow-hidden relative z-10 animate-fade-in border border-blue-900/20">
+                <div className="bg-gradient-to-r from-blue-900 via-blue-800 to-slate-900 p-8 text-center text-white relative">
+                  <div className="w-20 h-20 mx-auto bg-amber-400 rounded-2xl flex items-center justify-center text-blue-950 text-3xl font-black shadow-lg mb-4 border-2 border-white/20">
+                    <i className="fa-solid fa-graduation-cap"></i>
+                  </div>
+                  <h1 className="text-2xl font-black tracking-wide">ABSENSI DIGITAL</h1>
+                  <p className="text-amber-400 text-xs font-bold tracking-wider mt-1 uppercase">SMP Islam YTM 1 Bogor</p>
+                </div>
+                
+                <div className="p-8 space-y-6">
+                  <form onSubmit={(e) => handleLogin('ADMIN', null, e)} className="space-y-4">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Username / NIP</label>
+                      <input 
+                        type="text" 
+                        defaultValue="admin.ytm1"
+                        className="w-full px-4 py-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase mb-2">Kata Sandi</label>
+                      <input 
+                        type="password" 
+                        defaultValue="••••••••"
+                        className="w-full px-4 py-3 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50"
+                      />
+                    </div>
+                    <button type="submit" className="w-full bg-blue-900 hover:bg-blue-800 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-blue-900/30">
+                      Masuk Ke Sistem <i className="fa-solid fa-arrow-right ml-2"></i>
+                    </button>
+                  </form>
+
+                  <div className="pt-6 border-t border-slate-100">
+                    <p className="text-[10px] font-black text-center text-slate-400 uppercase tracking-wider mb-3">PILIH AKSES DEMO CEPAT</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button onClick={(e) => handleLogin('ADMIN', 'Administrator IT', e)} className="py-2 px-2 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-xl text-[11px] font-bold transition text-center">
+                        <i className="fa-solid fa-user-gear block mb-1 text-sm"></i> Admin
+                      </button>
+                      <button onClick={(e) => handleLogin('WALI', 'Ahmad Fauzi, S.Pd', e)} className="py-2 px-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-xl text-[11px] font-bold transition text-center">
+                        <i className="fa-solid fa-chalkboard-user block mb-1 text-sm"></i> Wali Kelas
+                      </button>
+                      <button onClick={(e) => handleLogin('GURU', 'Siti Aminah, M.Pd', e)} className="py-2 px-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-[11px] font-bold transition text-center">
+                        <i className="fa-solid fa-book-open block mb-1 text-sm"></i> Guru Mapel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ErrorBoundary>
+        );
+      }
+
+      return (
+        <ErrorBoundary>
+          <div className="flex h-screen overflow-hidden font-sans text-slate-800">
+            <AppContent 
+              user={activeUser}
+              onLogout={handleLogout}
+              classes={classes}
+              setClasses={updateClasses}
+              students={students}
+              setStudents={updateStudents}
+              attendance={attendance}
+              setAttendance={updateAttendance}
+              sidebarOpen={sidebarOpen}
+              setSidebarOpen={setSidebarOpen}
+              showToast={showToast}
+            />
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+          </div>
+        </ErrorBoundary>
+      );
+    }
+
+    const AppContent = ({ user, onLogout, classes, setClasses, students, setStudents, attendance, setAttendance, sidebarOpen, setSidebarOpen, showToast }) => {
+      const [activeTab, setActiveTab] = useState('dashboard');
+
+      const menuItems = [
+        { id: 'dashboard', label: 'Dashboard', icon: 'fa-solid fa-chart-pie', roles: ['ADMIN', 'WALI', 'GURU'] },
+        { id: 'classes', label: 'Data Kelas', icon: 'fa-solid fa-school', roles: ['ADMIN'] },
+        { id: 'students', label: 'Data Siswa', icon: 'fa-solid fa-users', roles: ['ADMIN', 'WALI'] },
+        { id: 'attendance', label: 'Absensi Siswa', icon: 'fa-solid fa-clipboard-user', roles: ['ADMIN', 'WALI', 'GURU'] },
+        { id: 'history', label: 'Riwayat & Laporan', icon: 'fa-solid fa-file-lines', roles: ['ADMIN', 'WALI', 'GURU'] },
+        { id: 'qrcode', label: 'Kartu QR & Scan', icon: 'fa-solid fa-qrcode', roles: ['ADMIN', 'GURU'] }
+      ];
+
+      const allowedMenus = menuItems.filter(m => m.roles.includes(user.role));
+
+      const renderView = () => {
+        switch (activeTab) {
+          case 'dashboard': 
+            return <DashboardView attendance={attendance} classes={classes} students={students} setActiveTab={setActiveTab} user={user} />;
+          case 'classes':
+            return <ClassesView classes={classes} setClasses={setClasses} students={students} showToast={showToast} />;
+          case 'students':
+            return <StudentsView students={students} setStudents={setStudents} classes={classes} showToast={showToast} />;
+          case 'attendance':
+            return <AttendanceInputView classes={classes} students={students} attendance={attendance} setAttendance={setAttendance} showToast={showToast} user={user} />;
+          case 'history':
+            return <HistoryView classes={classes} students={students} attendance={attendance} />;
+          case 'qrcode':
+            return <QrView students={students} classes={classes} attendance={attendance} setAttendance={setAttendance} showToast={showToast} />;
+          default:
+            return <DashboardView attendance={attendance} classes={classes} students={students} setActiveTab={setActiveTab} user={user} />;
+        }
+      };
+
+      return (
+        <>
+          {sidebarOpen && <div className="fixed inset-0 bg-slate-900/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />}
+          
+          <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 border-r border-slate-800 shadow-2xl transform transition-transform duration-300 md:relative md:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col no-print`}>
+            <div className="p-5 border-b border-slate-800 flex items-center space-x-3 bg-blue-950 text-white h-20">
+              <div className="w-10 h-10 rounded-xl bg-amber-400 text-blue-950 flex items-center justify-center font-black text-lg shadow">
+                <i className="fa-solid fa-graduation-cap"></i>
+              </div>
+              <div className="min-w-0 flex-1">
+                <h1 className="font-extrabold text-xs tracking-wider uppercase text-white truncate">ABSENSI DIGITAL</h1>
+                <p className="text-[10px] text-amber-400 font-bold uppercase truncate">SMP Islam YTM 1</p>
+              </div>
+              <button className="md:hidden text-slate-400 hover:text-white" onClick={() => setSidebarOpen(false)}>
+                <i className="fa-solid fa-xmark text-lg"></i>
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+              {allowedMenus.map(item => {
+                const isActive = activeTab === item.id;
+                return (
+                  <button 
+                    key={item.id} 
+                    onClick={() => { setActiveTab(item.id); setSidebarOpen(false); }} 
+                    className={`w-full flex items-center px-4 py-3 text-xs font-bold rounded-xl transition-all ${
+                      isActive 
+                        ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
+                    }`}
+                  >
+                    <i className={`${item.icon} text-base w-6 text-center mr-2.5 ${isActive ? 'text-amber-300' : 'text-slate-500'}`}></i>
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="p-4 border-t border-slate-800 bg-slate-950">
+              <div className="flex items-center p-3 mb-3 bg-slate-900 border border-slate-800 rounded-2xl">
+                <div className="w-9 h-9 rounded-full bg-amber-400 text-blue-950 flex items-center justify-center font-black text-xs mr-3 shadow">
+                  {user.name.charAt(0)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-white truncate">{user.name}</p>
+                  <p className="text-[9px] text-amber-400 font-extrabold uppercase tracking-wider">{user.role}</p>
+                </div>
+              </div>
+              <button onClick={onLogout} className="w-full flex items-center justify-center px-4 py-2.5 text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 rounded-xl transition border border-rose-500/20">
+                <i className="fa-solid fa-right-from-bracket mr-2"></i> Keluar
+              </button>
+            </div>
+          </aside>
+
+          <main className="flex-1 flex flex-col min-w-0 overflow-hidden h-full">
+            <header className="bg-slate-900 text-white h-16 flex items-center justify-between px-4 md:hidden shadow-md z-30 no-print">
+              <div className="flex items-center space-x-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-400 text-blue-950 flex items-center justify-center font-black text-sm">
+                  <i className="fa-solid fa-graduation-cap"></i>
+                </div>
+                <h1 className="font-extrabold text-xs tracking-wider uppercase">ABSENSI DIGITAL YTM 1</h1>
+              </div>
+              <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-300 hover:text-white">
+                <i className="fa-solid fa-bars text-xl"></i>
+              </button>
+            </header>
+            <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-slate-50">
+              {renderView()}
+            </div>
+          </main>
+        </>
+      );
+    };
+
+    const DashboardView = ({ user, classes, students, attendance, setActiveTab }) => {
+      const today = new Date().toISOString().split('T')[0];
+      const todaysAttendance = useMemo(() => attendance.filter(a => a.date === today), [attendance, today]);
+
+      const totalStudents = students.length;
+      const totalHadir = todaysAttendance.filter(a => a.status === 'hadir').length;
+      const totalSakit = todaysAttendance.filter(a => a.status === 'sakit').length;
+      const totalIzin = todaysAttendance.filter(a => a.status === 'izin').length;
+      const totalAlpa = todaysAttendance.filter(a => a.status === 'alpa').length;
+      const totalTidakHadir = totalSakit + totalIzin + totalAlpa;
+
+      const attendancePercentage = totalStudents > 0 ? Math.round((totalHadir / totalStudents) * 100) : 0;
+
+      const pieData = [
+        { name: 'Hadir', value: totalHadir },
+        { name: 'Sakit', value: totalSakit },
+        { name: 'Izin', value: totalIzin },
+        { name: 'Alpa', value: totalAlpa },
+      ].filter(d => d.value > 0);
+
+      const classStats = useMemo(() => {
+        return classes.map(cls => {
+          const classStudentIds = students.filter(s => s.classId === cls.id).map(s => s.id);
+          const classAtt = todaysAttendance.filter(a => classStudentIds.includes(a.studentId));
+          return {
+            name: cls.name,
+            Hadir: classAtt.filter(a => a.status === 'hadir').length,
+            Sakit: classAtt.filter(a => a.status === 'sakit').length,
+            Izin: classAtt.filter(a => a.status === 'izin').length,
+            Alpa: classAtt.filter(a => a.status === 'alpa').length,
+          };
+        });
+      }, [classes, students, todaysAttendance]);
+
+      const StatCard = ({ title, value, subtext, icon, color, iconBg }) => (
+        <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200/80 flex items-center transition hover:shadow-md">
+          <div className="flex-1">
+            <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">{title}</p>
+            <h3 className={`text-2xl font-black ${color}`}>{value}</h3>
+            {subtext && <p className="text-[11px] text-slate-500 mt-1 font-semibold">{subtext}</p>}
+          </div>
+          <div className={`w-12 h-12 ${iconBg} rounded-2xl flex items-center justify-center text-xl`}>
+            <i className={`fa-solid ${icon}`}></i>
+          </div>
+        </div>
+      );
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-blue-950 via-blue-900 to-slate-900 text-white p-6 md:p-8 rounded-3xl shadow-xl relative overflow-hidden">
+            <div className="relative z-10">
+              <span className="bg-amber-400 text-blue-950 font-black text-[10px] px-3 py-1 rounded-full uppercase tracking-wider">PANEL UTAMA</span>
+              <h2 className="text-2xl font-black mt-2">Assalamu'alaikum, {user.name}</h2>
+              <p className="text-slate-300 text-xs mt-1">Sistem Absensi Digital SMP Islam YTM 1 Bogor — {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+            </div>
+            <button 
+              onClick={() => setActiveTab('attendance')} 
+              className="relative z-10 bg-amber-400 hover:bg-amber-300 text-blue-950 px-6 py-3.5 rounded-2xl font-black text-xs shadow-lg transition flex items-center justify-center space-x-2"
+            >
+              <i className="fa-solid fa-pen-to-square"></i>
+              <span>INPUT ABSENSI HARI INI</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard title="TOTAL SISWA" value={totalStudents} subtext={`${classes.length} Rombongan Belajar`} icon="fa-users" color="text-slate-800" iconBg="bg-blue-50 text-blue-800" />
+            <StatCard title="HADIR HARI INI" value={totalHadir} subtext={`${attendancePercentage}% Kehadiran`} icon="fa-user-check" color="text-emerald-600" iconBg="bg-emerald-50 text-emerald-600" />
+            <StatCard title="TIDAK HADIR" value={totalTidakHadir} subtext={`S: ${totalSakit} | I: ${totalIzin} | A: ${totalAlpa}`} icon="fa-user-xmark" color="text-rose-600" iconBg="bg-rose-50 text-rose-600" />
+            <StatCard title="TOTAL KELAS" value={classes.length} subtext="Kelas VII - IX" icon="fa-school" color="text-amber-600" iconBg="bg-amber-50 text-amber-600" />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex flex-col">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-4 pb-3 border-b border-slate-100 flex items-center justify-between">
+                <span>Distribusi Absensi Today</span>
+                <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">{attendancePercentage}% Realtime</span>
+              </h3>
+              {pieData.length > 0 ? (
+                <div className="h-64 flex-1">
+                  <ResponsiveContainer height="100%" width="100%">
+                    <PieChart>
+                      <Pie cx="50%" cy="50%" data={pieData} dataKey="value" innerRadius={55} outerRadius={85} paddingAngle={4}>
+                        {pieData.map((e, idx) => (
+                          <Cell key={`cell-${idx}`} fill={PIE_COLORS[idx % PIE_COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip />
+                      <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-64 flex flex-col items-center justify-center text-slate-400 bg-slate-50 rounded-2xl text-xs">
+                  <i className="fa-solid fa-chart-pie text-3xl mb-2 text-slate-300"></i>
+                  <span>Belum ada data absensi hari ini</span>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 lg:col-span-2 flex flex-col">
+              <h3 className="text-xs font-black text-slate-800 uppercase tracking-wider mb-4 pb-3 border-b border-slate-100">
+                Statistik Kehadiran per Rombongan Belajar (Kelas)
+              </h3>
+              <div className="h-64 flex-1">
+                <ResponsiveContainer height="100%" width="100%">
+                  <BarChart data={classStats}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <YAxis tick={{ fontSize: 10, fontWeight: 'bold' }} />
+                    <RechartsTooltip />
+                    <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
+                    <Bar dataKey="Hadir" fill={COLORS.hadir} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Sakit" fill={COLORS.sakit} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Izin" fill={COLORS.izin} radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Alpa" fill={COLORS.alpa} radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const ClassesView = ({ classes, setClasses, students, showToast }) => {
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editClass, setEditClass] = useState(null);
+      const [formData, setFormData] = useState({ name: '', level: 'VII', wali: '', room: '' });
+
+      const handleOpenModal = (cls = null) => {
+        if (cls) {
+          setEditClass(cls);
+          setFormData({ name: cls.name, level: cls.level, wali: cls.wali, room: cls.room || '' });
+        } else {
+          setEditClass(null);
+          setFormData({ name: '', level: 'VII', wali: '', room: '' });
+        }
+        setIsModalOpen(true);
+      };
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        if (!formData.name || !formData.wali) {
+          showToast('Nama kelas dan Wali Kelas wajib diisi', 'error');
+          return;
+        }
+
+        if (editClass) {
+          const updated = classes.map(c => c.id === editClass.id ? { ...c, ...formData } : c);
+          setClasses(updated);
+          showToast(`Kelas ${formData.name} berhasil diperbarui!`);
+        } else {
+          const newCls = { id: genId(), ...formData };
+          setClasses([...classes, newCls]);
+          showToast(`Kelas ${formData.name} berhasil ditambahkan!`);
+        }
+        setIsModalOpen(false);
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <div>
+              <h2 className="text-xl font-black text-slate-800">Data Kelas & Rombel</h2>
+              <p className="text-xs text-slate-500">Kelola informasi kelas dan wali kelas SMP Islam YTM 1</p>
+            </div>
+            <button onClick={() => handleOpenModal()} className="bg-blue-900 hover:bg-blue-800 text-white font-bold px-5 py-3 rounded-2xl text-xs shadow-lg transition flex items-center justify-center space-x-2">
+              <i className="fa-solid fa-plus"></i>
+              <span>Tambah Kelas Baru</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {classes.map(cls => {
+              const studentCount = students.filter(s => s.classId === cls.id).length;
+              return (
+                <div key={cls.id} className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-xs font-black px-3 py-1 bg-blue-100 text-blue-900 rounded-xl">Tingkat {cls.level}</span>
+                      <button onClick={() => handleOpenModal(cls)} className="text-slate-400 hover:text-blue-900 text-sm p-1">
+                        <i className="fa-solid fa-pen-to-square"></i>
+                      </button>
+                    </div>
+                    <h3 className="text-2xl font-black text-slate-900">{cls.name}</h3>
+                    <div className="mt-4 space-y-2 text-xs text-slate-600">
+                      <p className="flex items-center">
+                        <i className="fa-solid fa-user-tie w-5 text-slate-400"></i>
+                        <span className="font-semibold">{cls.wali}</span>
+                      </p>
+                      <p className="flex items-center">
+                        <i className="fa-solid fa-door-open w-5 text-slate-400"></i>
+                        <span>{cls.room || 'Ruang Utama'}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-slate-500">
+                    <span>Jumlah Siswa</span>
+                    <span className="px-2.5 py-1 bg-slate-100 text-slate-800 rounded-lg">{studentCount} Siswa</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <Modal isOpen={isModalOpen} title={editClass ? "Edit Data Kelas" : "Tambah Kelas Baru"} onClose={() => setIsModalOpen(false)}>
+            <form onSubmit={handleSave} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Tingkat Kelas</label>
+                <select value={formData.level} onChange={(e) => setFormData({...formData, level: e.target.value})} className="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50">
+                  <option value="VII">VII (Tujuh)</option>
+                  <option value="VIII">VIII (Delapan)</option>
+                  <option value="IX">IX (Sembilan)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nama Kelas</label>
+                <input type="text" placeholder="Contoh: VII A" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Wali Kelas</label>
+                <input type="text" placeholder="Nama lengkap wali kelas" value={formData.wali} onChange={(e) => setFormData({...formData, wali: e.target.value})} className="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Ruang Kelas</label>
+                <input type="text" placeholder="Contoh: Ruang 101" value={formData.room} onChange={(e) => setFormData({...formData, room: e.target.value})} className="w-full px-4 py-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+              </div>
+              <div className="pt-4 flex justify-end space-x-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Batal</button>
+                <button type="submit" className="px-5 py-2.5 text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-xl shadow-lg">Simpan Kelas</button>
+              </div>
+            </form>
+          </Modal>
+        </div>
+      );
+    };
+
+    const StudentsView = ({ students, setStudents, classes, showToast }) => {
+      const [searchTerm, setSearchTerm] = useState('');
+      const [selectedClass, setSelectedClass] = useState('ALL');
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [editStudent, setEditStudent] = useState(null);
+
+      const [formData, setFormData] = useState({
+        nis: '', nisn: '', name: '', gender: 'L', classId: classes[0]?.id || '', parentPhone: '', address: ''
+      });
+
+      const filteredStudents = useMemo(() => {
+        return students.filter(s => {
+          const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                                s.nis.includes(searchTerm) || 
+                                s.nisn.includes(searchTerm);
+          const matchesClass = selectedClass === 'ALL' || s.classId === selectedClass;
+          return matchesSearch && matchesClass;
+        });
+      }, [students, searchTerm, selectedClass]);
+
+      const handleOpenModal = (student = null) => {
+        if (student) {
+          setEditStudent(student);
+          setFormData({ ...student });
+        } else {
+          setEditStudent(null);
+          setFormData({
+            nis: `2425${Math.floor(1000 + Math.random() * 8999)}`,
+            nisn: `008${Math.floor(10000000 + Math.random() * 89999999)}`,
+            name: '',
+            gender: 'L',
+            classId: classes[0]?.id || '',
+            parentPhone: '0812',
+            address: 'Bogor'
+          });
+        }
+        setIsModalOpen(true);
+      };
+
+      const handleSave = (e) => {
+        e.preventDefault();
+        if (!formData.name || !formData.nis) {
+          showToast('Nama dan NIS wajib diisi', 'error');
+          return;
+        }
+
+        if (editStudent) {
+          const updated = students.map(s => s.id === editStudent.id ? { ...s, ...formData } : s);
+          setStudents(updated);
+          showToast(`Data siswa ${formData.name} berhasil diperbarui!`);
+        } else {
+          const newStudent = { id: genId(), status: 'Aktif', ...formData };
+          setStudents([...students, newStudent]);
+          showToast(`Siswa ${formData.name} berhasil ditambahkan!`);
+        }
+        setIsModalOpen(false);
+      };
+
+      const handleDelete = (id, name) => {
+        const updated = students.filter(s => s.id !== id);
+        setStudents(updated);
+        showToast(`Siswa ${name} dihapus dari sistem`, 'error');
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <div>
+              <h2 className="text-xl font-black text-slate-800">Direktori Data Siswa</h2>
+              <p className="text-xs text-slate-500">Kelola NIS, NISN, Rombel, dan Kontak Orang Tua Siswa</p>
+            </div>
+            <button onClick={() => handleOpenModal()} className="bg-blue-900 hover:bg-blue-800 text-white font-bold px-5 py-3 rounded-2xl text-xs shadow-lg transition flex items-center justify-center space-x-2">
+              <i className="fa-solid fa-user-plus"></i>
+              <span>Tambah Siswa Baru</span>
+            </button>
+          </div>
+
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between">
+            <div className="relative w-full md:w-80">
+              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input 
+                type="text" 
+                placeholder="Cari Nama / NIS / NISN..." 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2.5 text-xs rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50"
+              />
+            </div>
+            <div className="flex items-center space-x-2 w-full md:w-auto">
+              <span className="text-xs font-bold text-slate-500 whitespace-nowrap">Filter Kelas:</span>
+              <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="px-4 py-2.5 text-xs rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50 font-semibold text-slate-700 w-full md:w-auto">
+                <option value="ALL">Semua Kelas ({students.length})</option>
+                {classes.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900 text-white uppercase font-extrabold text-[10px] tracking-wider">
+                  <tr>
+                    <th className="px-6 py-4">No</th>
+                    <th className="px-6 py-4">NIS / NISN</th>
+                    <th className="px-6 py-4">Nama Lengkap</th>
+                    <th className="px-6 py-4">L/P</th>
+                    <th className="px-6 py-4">Kelas</th>
+                    <th className="px-6 py-4">No HP Orang Tua</th>
+                    <th className="px-6 py-4 text-center">Aksi</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredStudents.length > 0 ? (
+                    filteredStudents.map((s, idx) => {
+                      const cls = classes.find(c => c.id === s.classId);
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-6 py-4 text-slate-400 font-bold">{idx + 1}</td>
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-blue-900">{s.nis}</span>
+                            <span className="block text-[10px] text-slate-400">{s.nisn}</span>
+                          </td>
+                          <td className="px-6 py-4 font-bold text-slate-800">{s.name}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2 py-0.5 rounded-md font-extrabold text-[10px] ${s.gender === 'L' ? 'bg-blue-100 text-blue-800' : 'bg-pink-100 text-pink-800'}`}>
+                              {s.gender}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="font-bold text-slate-700">{cls?.name || '-'}</span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-600">{s.parentPhone}</td>
+                          <td className="px-6 py-4 text-center space-x-2">
+                            <button onClick={() => handleOpenModal(s)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-xl transition">
+                              <i className="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            <button onClick={() => handleDelete(s.id, s.name)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-xl transition">
+                              <i className="fa-solid fa-trash-can"></i>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="px-6 py-8 text-center text-slate-400">Tidak ada data siswa ditemukan</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <Modal isOpen={isModalOpen} title={editStudent ? "Edit Data Siswa" : "Tambah Siswa Baru"} onClose={() => setIsModalOpen(false)}>
+            <form onSubmit={handleSave} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">NIS</label>
+                  <input type="text" value={formData.nis} onChange={(e) => setFormData({...formData, nis: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">NISN</label>
+                  <input type="text" value={formData.nisn} onChange={(e) => setFormData({...formData, nisn: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Nama Lengkap</label>
+                <input type="text" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Jenis Kelamin</label>
+                  <select value={formData.gender} onChange={(e) => setFormData({...formData, gender: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50">
+                    <option value="L">Laki-Laki (L)</option>
+                    <option value="P">Perempuan (P)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Kelas</label>
+                  <select value={formData.classId} onChange={(e) => setFormData({...formData, classId: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50">
+                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">No HP Orang Tua</label>
+                <input type="text" value={formData.parentPhone} onChange={(e) => setFormData({...formData, parentPhone: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50" />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 uppercase mb-1">Alamat Tempat Tinggal</label>
+                <textarea rows="2" value={formData.address} onChange={(e) => setFormData({...formData, address: e.target.value})} className="w-full px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50"></textarea>
+              </div>
+              <div className="pt-4 flex justify-end space-x-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Batal</button>
+                <button type="submit" className="px-5 py-2.5 text-xs font-bold text-white bg-blue-900 hover:bg-blue-800 rounded-xl shadow-lg">Simpan Data Siswa</button>
+              </div>
+            </form>
+          </Modal>
+        </div>
+      );
+    };
+
+    const AttendanceInputView = ({ classes, students, attendance, setAttendance, showToast, user }) => {
+      const [selectedClass, setSelectedClass] = useState(classes[0]?.id || '');
+      const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+      const [localStatus, setLocalStatus] = useState({});
+      const [localNotes, setLocalNotes] = useState({});
+
+      const currentStudents = useMemo(() => {
+        return students.filter(s => s.classId === selectedClass);
+      }, [students, selectedClass]);
+
+      useEffect(() => {
+        // Hydrate attendance state for selected class and date
+        const initialStatus = {};
+        const initialNotes = {};
+        currentStudents.forEach(s => {
+          const rec = attendance.find(a => a.date === selectedDate && a.studentId === s.id);
+          initialStatus[s.id] = rec ? rec.status : 'hadir';
+          initialNotes[s.id] = rec ? (rec.note || '') : '';
+        });
+        setLocalStatus(initialStatus);
+        setLocalNotes(initialNotes);
+      }, [selectedClass, selectedDate, currentStudents, attendance]);
+
+      const handleStatusChange = (studentId, status) => {
+        setLocalStatus(prev => ({ ...prev, [studentId]: status }));
+      };
+
+      const handleNoteChange = (studentId, note) => {
+        setLocalNotes(prev => ({ ...prev, [studentId]: note }));
+      };
+
+      const handleBulkSet = (status) => {
+        const updated = {};
+        currentStudents.forEach(s => { updated[s.id] = status; });
+        setLocalStatus(updated);
+        showToast(`Semua siswa diset sebagai ${status.toUpperCase()}`);
+      };
+
+      const handleSaveAttendance = () => {
+        let updatedAttendance = [...attendance];
+        currentStudents.forEach(s => {
+          const existingIdx = updatedAttendance.findIndex(a => a.date === selectedDate && a.studentId === s.id);
+          const newRecord = {
+            id: existingIdx >= 0 ? updatedAttendance[existingIdx].id : genId(),
+            date: selectedDate,
+            classId: selectedClass,
+            studentId: s.id,
+            status: localStatus[s.id] || 'hadir',
+            note: localNotes[s.id] || ''
+          };
+          if (existingIdx >= 0) {
+            updatedAttendance[existingIdx] = newRecord;
+          } else {
+            updatedAttendance.push(newRecord);
+          }
+        });
+        setAttendance(updatedAttendance);
+        showToast('Data absensi berhasil disimpan ke database!');
+      };
+
+      const clsObj = classes.find(c => c.id === selectedClass);
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-black text-slate-800">Form Pengisian Absensi</h2>
+              <p className="text-xs text-slate-500">Petugas Input: <span className="font-bold text-blue-900">{user.name}</span></p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Pilih Kelas</label>
+                <select value={selectedClass} onChange={(e) => setSelectedClass(e.target.value)} className="px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50 font-bold">
+                  {classes.map(c => <option key={c.id} value={c.id}>Kelas {c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Tanggal Absensi</label>
+                <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="px-4 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50 font-bold" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-bold text-slate-500">Aksi Cepat:</span>
+              <button onClick={() => handleBulkSet('hadir')} className="px-3 py-1.5 bg-emerald-100 text-emerald-800 rounded-xl text-xs font-bold hover:bg-emerald-200 transition">
+                <i className="fa-solid fa-check-double mr-1"></i> Hadir Semua
+              </button>
+              <button onClick={() => handleBulkSet('alpa')} className="px-3 py-1.5 bg-rose-100 text-rose-800 rounded-xl text-xs font-bold hover:bg-rose-200 transition">
+                Reset ke Alpa
+              </button>
+            </div>
+            <span className="text-xs font-bold text-slate-400">Total {currentStudents.length} Siswa di Kelas {clsObj?.name}</span>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900 text-white uppercase font-extrabold text-[10px] tracking-wider">
+                  <tr>
+                    <th className="px-6 py-4">No</th>
+                    <th className="px-6 py-4">NIS</th>
+                    <th className="px-6 py-4">Nama Siswa</th>
+                    <th className="px-6 py-4 text-center">Status Kehadiran</th>
+                    <th className="px-6 py-4">Keterangan / Alasan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {currentStudents.length > 0 ? (
+                    currentStudents.map((s, idx) => {
+                      const st = localStatus[s.id] || 'hadir';
+                      return (
+                        <tr key={s.id} className="hover:bg-slate-50/80 transition">
+                          <td className="px-6 py-4 text-slate-400 font-bold">{idx + 1}</td>
+                          <td className="px-6 py-4 font-bold text-blue-900">{s.nis}</td>
+                          <td className="px-6 py-4 font-bold text-slate-800">{s.name}</td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="inline-flex p-1 bg-slate-100 rounded-2xl space-x-1 border border-slate-200">
+                              {[
+                                { key: 'hadir', label: 'Hadir', color: 'bg-emerald-600 text-white' },
+                                { key: 'sakit', label: 'Sakit', color: 'bg-amber-500 text-white' },
+                                { key: 'izin', label: 'Izin', color: 'bg-blue-600 text-white' },
+                                { key: 'alpa', label: 'Alpa', color: 'bg-rose-600 text-white' }
+                              ].map(opt => (
+                                <button
+                                  key={opt.key}
+                                  type="button"
+                                  onClick={() => handleStatusChange(s.id, opt.key)}
+                                  className={`px-3 py-1.5 rounded-xl text-[11px] font-black transition ${
+                                    st === opt.key ? `${opt.color} shadow-md` : 'text-slate-500 hover:text-slate-900'
+                                  }`}
+                                >
+                                  {opt.label}
+                                </button>
+                              ))}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <input 
+                              type="text"
+                              placeholder="Keterangan opsional..."
+                              value={localNotes[s.id] || ''}
+                              onChange={(e) => handleNoteChange(s.id, e.target.value)}
+                              className="w-full px-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50"
+                            />
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="5" className="px-6 py-8 text-center text-slate-400">Tidak ada siswa terdaftar di kelas ini</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            <div className="p-6 bg-slate-50 border-t border-slate-100 flex justify-end">
+              <button onClick={handleSaveAttendance} className="bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold px-8 py-3.5 rounded-2xl text-xs shadow-xl transition flex items-center space-x-2">
+                <i className="fa-solid fa-floppy-disk"></i>
+                <span>Simpan Rekap Absensi</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const HistoryView = ({ classes, students, attendance }) => {
+      const [filterClass, setFilterClass] = useState('ALL');
+      const [filterStatus, setFilterStatus] = useState('ALL');
+      const [searchQuery, setSearchQuery] = useState('');
+
+      const filteredLogs = useMemo(() => {
+        return attendance.filter(a => {
+          const student = students.find(s => s.id === a.studentId);
+          if (!student) return false;
+
+          const matchClass = filterClass === 'ALL' || student.classId === filterClass;
+          const matchStatus = filterStatus === 'ALL' || a.status === filterStatus;
+          const matchSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                              student.nis.includes(searchQuery);
+          return matchClass && matchStatus && matchSearch;
+        });
+      }, [attendance, students, filterClass, filterStatus, searchQuery]);
+
+      const handlePrint = () => {
+        window.print();
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl shadow-sm border border-slate-200 no-print">
+            <div>
+              <h2 className="text-xl font-black text-slate-800">Riwayat & Laporan Absensi</h2>
+              <p className="text-xs text-slate-500">Laporan Kehadiran Siswa SMP Islam YTM 1 Bogor</p>
+            </div>
+            <button onClick={handlePrint} className="bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 py-3 rounded-2xl text-xs shadow-lg transition flex items-center justify-center space-x-2">
+              <i className="fa-solid fa-print"></i>
+              <span>Cetak Rekap Laporan</span>
+            </button>
+          </div>
+
+          <div className="bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex flex-col md:flex-row gap-4 items-center justify-between no-print">
+            <div className="relative w-full md:w-64">
+              <i className="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input 
+                type="text" 
+                placeholder="Cari Siswa / NIS..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 text-xs rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50"
+              />
+            </div>
+            <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+              <select value={filterClass} onChange={(e) => setFilterClass(e.target.value)} className="px-4 py-2 text-xs rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50 font-semibold">
+                <option value="ALL">Semua Kelas</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} className="px-4 py-2 text-xs rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50 font-semibold">
+                <option value="ALL">Semua Status</option>
+                <option value="hadir">Hadir</option>
+                <option value="sakit">Sakit</option>
+                <option value="izin">Izin</option>
+                <option value="alpa">Alpa</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className="p-6 border-b border-slate-100 hidden print-only">
+              <h1 className="text-xl font-black text-center text-slate-900">SMP ISLAM YTM 1 BOGOR</h1>
+              <p className="text-center text-xs text-slate-500">REKAPITULASI ABSENSI SISWA DIGITAL</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-slate-900 text-white uppercase font-extrabold text-[10px] tracking-wider">
+                  <tr>
+                    <th className="px-6 py-4">Tanggal</th>
+                    <th className="px-6 py-4">NIS</th>
+                    <th className="px-6 py-4">Nama Siswa</th>
+                    <th className="px-6 py-4">Kelas</th>
+                    <th className="px-6 py-4">Status</th>
+                    <th className="px-6 py-4">Keterangan</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {filteredLogs.length > 0 ? (
+                    filteredLogs.map((log) => {
+                      const student = students.find(s => s.id === log.studentId);
+                      const cls = classes.find(c => c.id === student?.classId);
+                      const statusBadges = {
+                        hadir: 'bg-emerald-100 text-emerald-800',
+                        sakit: 'bg-amber-100 text-amber-800',
+                        izin: 'bg-blue-100 text-blue-800',
+                        alpa: 'bg-rose-100 text-rose-800'
+                      };
+                      return (
+                        <tr key={log.id} className="hover:bg-slate-50 transition">
+                          <td className="px-6 py-4 font-bold text-slate-700">{log.date}</td>
+                          <td className="px-6 py-4 font-bold text-blue-900">{student?.nis || '-'}</td>
+                          <td className="px-6 py-4 font-bold text-slate-800">{student?.name || '-'}</td>
+                          <td className="px-6 py-4 font-semibold text-slate-600">{cls?.name || '-'}</td>
+                          <td className="px-6 py-4">
+                            <span className={`px-2.5 py-1 rounded-lg font-black text-[10px] uppercase ${statusBadges[log.status] || 'bg-slate-100'}`}>
+                              {log.status}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-slate-500">{log.note || '-'}</td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="px-6 py-8 text-center text-slate-400">Tidak ada riwayat absensi sesuai filter</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const QrView = ({ students, classes, attendance, setAttendance, showToast }) => {
+      const [selectedStudent, setSelectedStudent] = useState(students[0] || null);
+      const [scanSuccess, setScanSuccess] = useState(null);
+
+      const handleSimulateScan = (std) => {
+        setSelectedStudent(std);
+        const today = new Date().toISOString().split('T')[0];
+        
+        let updatedAttendance = [...attendance];
+        const existingIdx = updatedAttendance.findIndex(a => a.date === today && a.studentId === std.id);
+        const newRecord = {
+          id: existingIdx >= 0 ? updatedAttendance[existingIdx].id : genId(),
+          date: today,
+          classId: std.classId,
+          studentId: std.id,
+          status: 'hadir',
+          note: 'Hadir via Scan QR Card'
+        };
+
+        if (existingIdx >= 0) {
+          updatedAttendance[existingIdx] = newRecord;
+        } else {
+          updatedAttendance.push(newRecord);
+        }
+
+        setAttendance(updatedAttendance);
+        setScanSuccess(`QR Scan Berhasil! ${std.name} dicatat HADIR.`);
+        showToast(`QR Code Valid! ${std.name} (Hadir)`);
+      };
+
+      return (
+        <div className="space-y-6 animate-fade-in">
+          <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-200">
+            <h2 className="text-xl font-black text-slate-800">Kartu Pelajar & QR Code Reader</h2>
+            <p className="text-xs text-slate-500">Cetak Kartu Siswa atau Simulasi Presensi Berbasis QR Code</p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Kartu Pelajar Digital */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col items-center">
+              <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-6">Preview Kartu Pelajar Digital</h3>
+              {selectedStudent && (
+                <div className="w-full max-w-sm bg-gradient-to-br from-blue-950 via-blue-900 to-slate-900 text-white rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-blue-700/40">
+                  <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
+                    <div>
+                      <h4 className="font-extrabold text-sm tracking-wide">SMP ISLAM YTM 1</h4>
+                      <p className="text-[9px] text-amber-400 font-bold uppercase">KARTU TANDA PELAJAR</p>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-amber-400 text-blue-950 flex items-center justify-center font-black">
+                      <i className="fa-solid fa-graduation-cap"></i>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="w-16 h-20 bg-slate-200 text-slate-700 rounded-xl flex items-center justify-center font-black text-xl shadow">
+                      {selectedStudent.name.charAt(0)}
+                    </div>
+                    <div className="flex-1 text-xs space-y-1">
+                      <p className="font-black text-sm text-white truncate">{selectedStudent.name}</p>
+                      <p className="text-amber-300 font-bold">NIS: {selectedStudent.nis}</p>
+                      <p className="text-slate-300">Kelas: {classes.find(c => c.id === selectedStudent.classId)?.name}</p>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-2xl flex items-center justify-between text-slate-900">
+                    <div className="text-[10px] space-y-0.5">
+                      <p className="font-bold">STATUS: SISWA AKTIF</p>
+                      <p className="text-slate-400">YTM1-BOGOR-2026</p>
+                    </div>
+                    <div className="w-12 h-12 bg-slate-900 text-white rounded-lg flex items-center justify-center text-xl">
+                      <i className="fa-solid fa-qrcode"></i>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="mt-6 w-full">
+                <label className="block text-xs font-bold text-slate-500 mb-2">Pilih Siswa untuk Kartu</label>
+                <select 
+                  onChange={(e) => {
+                    const std = students.find(s => s.id === e.target.value);
+                    if (std) setSelectedStudent(std);
+                  }}
+                  className="w-full px-4 py-2.5 text-xs rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-700 bg-slate-50 font-semibold"
+                >
+                  {students.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.nis})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {/* Simulasi Scan QR */}
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col justify-between">
+              <div>
+                <h3 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Simulasi Scanner QR Code Presensi</h3>
+                <div className="p-8 bg-slate-900 text-white rounded-3xl text-center space-y-4 relative overflow-hidden">
+                  <div className="w-20 h-20 mx-auto rounded-2xl border-2 border-dashed border-amber-400 flex items-center justify-center text-amber-400 text-3xl animate-pulse">
+                    <i className="fa-solid fa-qrcode"></i>
+                  </div>
+                  <p className="text-xs text-slate-300 font-medium">Arahkan kamera ke QR Code Kartu Pelajar Siswa</p>
+                  {scanSuccess && (
+                    <div className="p-3 bg-emerald-500/20 text-emerald-300 rounded-xl text-xs font-bold border border-emerald-500/30 animate-fade-in">
+                      <i className="fa-solid fa-circle-check mr-2"></i> {scanSuccess}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-6">
+                <p className="text-xs font-bold text-slate-500 mb-3">Ketuk Nama Siswa di bawah untuk Uji Scan QR Instant:</p>
+                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto p-1">
+                  {students.slice(0, 8).map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => handleSimulateScan(s)}
+                      className="p-2.5 bg-slate-50 hover:bg-blue-50 hover:text-blue-900 rounded-xl text-xs font-bold text-slate-700 text-left transition border border-slate-200/60 truncate flex items-center space-x-2"
+                    >
+                      <i className="fa-solid fa-barcode text-slate-400"></i>
+                      <span className="truncate">{s.name}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
